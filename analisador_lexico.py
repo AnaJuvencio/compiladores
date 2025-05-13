@@ -37,7 +37,7 @@ class UChuckLexer(Lexer):
         # Identifiers
         "ID",
         # Constants
-        "FLOAT_VAL",
+        "FLOAT_VAL",     
         "INT_VAL",
         "STRING_LIT",
         # Operators
@@ -46,18 +46,18 @@ class UChuckLexer(Lexer):
         "TIMES",
         "DIVIDE",
         "PERCENT",
-        "LE",
+        "LE",             
         "LT",
-        "GE",
-        "GT",
-        "EQ",
-        "NEQ",
-        "AND",
-        "OR",
-        "EXCLAMATION",
+        "GE",            
+        "GT",             
+        "EQ",            
+        "NEQ",            
+        "AND",           
+        "OR",             
+        "EXCLAMATION",    
         # Assignment
         "CHUCK",
-        # Delimeters
+        # Delimiters
         "LPAREN",
         "RPAREN",  # ( )
         "LBRACE",
@@ -74,32 +74,49 @@ class UChuckLexer(Lexer):
 
     # Other ignored patterns
     ignore_newline = r'\n+'
-    ignore_comment = r'//.*|/\*([^*]|\*+[^*/])*\*+/'
+    #ignore_comment = r'//.*|/\*([^*]|\*+[^*/])*\*+/'
+    ignore_comment = r'/\*([^*]|\*+[^*/])*\*+/|//.*'
+
     
     # Regular expression rules for tokens
-   
-    L_HACK = r'<<<'          # Deve vir antes de LT
-    R_HACK = r'>>>'          # Deve vir antes de outros operadores
-    LT = r'<'                # Menor que
-    
+    L_HACK = r'<<<'
+    R_HACK = r'>>>'
+
+    # Operadores relacionais (ordem importa!)
+    LE  = r'<='     # Menor ou igual
+    GE  = r'>='     # Maior ou igual
+    EQ  = r'=='     # Igual
+    NEQ = r'!='     # Diferente
+    LT  = r'<'      # Menor que
+    GT  = r'>'      # Maior que
+
+    # Operadores lógicos
+    AND = r'&&'     
+    OR  = r'\|\|'   
+    EXCLAMATION = r'!'  
+
     # Operadores matemáticos
-    PLUS = r'\+'
-    MINUS = r'-'
-    TIMES = r'\*'
+    PLUS   = r'\+'
+    MINUS  = r'-'
+    TIMES  = r'\*'
     DIVIDE = r'/'
-    CHUCK = r'=>'
-    
+    PERCENT = r'%'
+    CHUCK  = r'=>'
+
     # Delimitadores
-    SEMI = r';'
+    SEMI   = r';'
     LPAREN = r'\('
     RPAREN = r'\)'
     LBRACE = r'\{'
     RBRACE = r'\}'
-    
-    # Identificadores e constantes
-    ID = r'[a-zA-Z_]\w*'
-    INT_VAL = r'\b\d+\b'
+
+    # Literais
     STRING_LIT = r'"(?:\\.|[^"\\])*"'
+    FLOAT_VAL  = r'\b\d+\.\d+\b'   # Float (ex: 3.14)
+    INT_VAL    = r'\b\d+\b'        # Int (ex: 3)
+
+    # Identificadores
+    ID = r'[a-zA-Z_]\w*|[a-zA-Z_]\w*\$'
 
     
     # Special cases
@@ -113,7 +130,9 @@ class UChuckLexer(Lexer):
         self.lineno += len(t.value)
 
     #@_(r'//.*|/\*([^*]|\*+[^*/])*\*+/')
-    @_(r'\#.*')
+    #@_(r'\#.*')
+    #@_(r'/\*(.|\n)*?\*/|//.*')
+    @_(r'/\*([^*]|\*+[^*/])*\*+/|//.*')
     def ignore_comment(self, t):
         self.lineno += t.value.count("\n")
 
