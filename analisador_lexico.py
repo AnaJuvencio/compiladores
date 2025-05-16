@@ -116,9 +116,15 @@ class UChuckLexer(Lexer):
     INT_VAL    = r'\b\d+\b'        # Int (ex: 3)
 
     # Identificadores
-    ID = r'[a-zA-Z_]\w*|[a-zA-Z_]\w*\$'
+    #ID = r'[a-zA-Z_]\w*|[a-zA-Z_]\w*\$'
+    ID = r'[a-zA-Z_]\w*'
 
-    
+
+
+    @_(r'"([^"\\\n]|\\.)*"')
+    def STRING_LIT(self, t):
+        return t
+
     # Special cases
     def ID(self, t):
       t.type = self.keywords.get(t.value, "ID")
@@ -141,6 +147,9 @@ class UChuckLexer(Lexer):
         last_cr = self.text.rfind('\n', 0, token.index)
         return token.index - last_cr
 
+    @_(r'"([^"\\\n]|\\.)*(\\)?$')
+    def error_string(self, t):
+        self._error("Unterminated string literal", t)
 
     # Internal auxiliary methods
     def _error(self, msg, token):
