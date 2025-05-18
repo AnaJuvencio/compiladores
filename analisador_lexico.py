@@ -69,61 +69,66 @@ class UChuckLexer(Lexer):
     )
     
 
-    # String containing ignored characters (between tokens)
-    ignore = " \t"
+    # Ignorar espaços e tabulações
+    ignore = ' \t'
 
-    # Other ignored patterns
-    ignore_newline = r'\n+'
-    #ignore_comment = r'//.*|/\*([^*]|\*+[^*/])*\*+/'
-    ignore_comment = r'/\*([^*]|\*+[^*/])*\*+/|//.*'
+    # Ignorar comentários de linha
+    @_(r'//.*')
+    def ignore_comment_line(self, t):
+        pass
+
+    # Ignorar comentários de bloco
+    @_(r'/\*([^*]|\*+[^*/])*\*+/')
+    def ignore_comment_block(self, t):
+        self.lineno += t.value.count('\n')
+
+
+    # Comentário de bloco mal formatado (sem fechamento)
+    @_(r'/\*([^*]|\*+[^*/])*$')
+    def error_unterminated_comment(self, t):
+        self._error("Unterminated comment", t)
 
     
-    # Regular expression rules for tokens
+    # Regras de expressão regular para os tokens
     L_HACK = r'<<<'
     R_HACK = r'>>>'
 
     # Operadores relacionais (ordem importa!)
-    LE  = r'<='     # Menor ou igual
-    GE  = r'>='     # Maior ou igual
-    EQ  = r'=='     # Igual
-    NEQ = r'!='     # Diferente
-    LT  = r'<'      # Menor que
-    GT  = r'>'      # Maior que
+    LE  = r'<='
+    GE  = r'>='
+    EQ  = r'=='
+    NEQ = r'!='
+    LT  = r'<'
+    GT  = r'>'
 
     # Operadores lógicos
-    AND = r'&&'     
-    OR  = r'\|\|'   
-    EXCLAMATION = r'!'  
+    AND = r'&&'
+    OR  = r'\|\|'
+    EXCLAMATION = r'!'
 
     # Operadores matemáticos
-    PLUS   = r'\+'
-    MINUS  = r'-'
-    TIMES  = r'\*'
-    DIVIDE = r'/'
+    PLUS    = r'\+'
+    MINUS   = r'-'
+    TIMES   = r'\*'
+    DIVIDE  = r'/'
     PERCENT = r'%'
-    CHUCK  = r'=>'
+    CHUCK   = r'=>'
 
     # Delimitadores
     SEMI   = r';'
+    COMMA  = r','   
     LPAREN = r'\('
     RPAREN = r'\)'
     LBRACE = r'\{'
     RBRACE = r'\}'
 
     # Literais
-    STRING_LIT = r'"(?:\\.|[^"\\])*"'
-    FLOAT_VAL  = r'\b\d+\.\d+\b'   # Float (ex: 3.14)
-    INT_VAL    = r'\b\d+\b'        # Int (ex: 3)
+    STRING_LIT = r'"([^"\\]|\\.)*"'
+    FLOAT_VAL  = r'\d+\.\d*|\.\d+'
+    INT_VAL    = r'\d+'
 
-    # Identificadores
-    #ID = r'[a-zA-Z_]\w*|[a-zA-Z_]\w*\$'
-    ID = r'[a-zA-Z_]\w*'
-
-
-
-    @_(r'"([^"\\\n]|\\.)*"')
-    def STRING_LIT(self, t):
-        return t
+    # Identificadores (com cifrão opcional)
+    ID = r'[a-zA-Z_][a-zA-Z0-9_]*\$?'
 
     # Special cases
     def ID(self, t):
@@ -135,19 +140,13 @@ class UChuckLexer(Lexer):
     def ignore_newline(self, t):
         self.lineno += len(t.value)
 
-    #@_(r'//.*|/\*([^*]|\*+[^*/])*\*+/')
-    #@_(r'\#.*')
-    #@_(r'/\*(.|\n)*?\*/|//.*')
-    @_(r'/\*([^*]|\*+[^*/])*\*+/|//.*')
-    def ignore_comment(self, t):
-        self.lineno += t.value.count("\n")
 
     def find_column(self, token):
         """Find the column of the token in its line."""
         last_cr = self.text.rfind('\n', 0, token.index)
         return token.index - last_cr
 
-    @_(r'"([^"\\\n]|\\.)*(\\)?$')
+    @_(r'"(\\["\\nrt]|[^"\\\n])*')
     def error_string(self, t):
         self._error("Unterminated string literal", t)
 

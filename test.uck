@@ -4,7 +4,7 @@
 
 while( n < 10 )
 {
-    value * n => value;
-    <<< value >>>;
-    n + 1 => n;
+	value * n => value;
+	<<< value >>>;
+	n + 1 => n;
 }
