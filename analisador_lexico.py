@@ -33,7 +33,7 @@ class UChuckLexer(Lexer):
     }
 
     # All the tokens recognized by the lexer
-    tokens = tuple(keywords.values()) + (
+    tokens = tuple(keywords.values()) + ( 
         # Identifiers
         "ID",
         # Constants
@@ -83,8 +83,9 @@ class UChuckLexer(Lexer):
         self.lineno += t.value.count('\n')
 
 
-    # Comentário de bloco mal formatado (sem fechamento)
-    @_(r'/\*([^*]|\*+[^*/])*$')
+    # Comentário de bloco mal formatado 
+    #@_(r'/\*([^*]|\*+[^*/])*$')
+    @_(r'/\*([^*]|\*+[^*/])*')
     def error_unterminated_comment(self, t):
         self._error("Unterminated comment", t)
 
@@ -93,7 +94,7 @@ class UChuckLexer(Lexer):
     L_HACK = r'<<<'
     R_HACK = r'>>>'
 
-    # Operadores relacionais (ordem importa!)
+    # Operadores relacionais 
     LE  = r'<='
     GE  = r'>='
     EQ  = r'=='
@@ -124,11 +125,14 @@ class UChuckLexer(Lexer):
 
     # Literais
     STRING_LIT = r'"([^"\\]|\\.)*"'
-    FLOAT_VAL  = r'\d+\.\d*|\.\d+'
+    #FLOAT_VAL  = r'\d+\.\d*|\.\d+'
+    FLOAT_VAL = r'\d+\.\d+(e[+-]?\d+)?|\d+e[+-]?\d+|\.\d+(e[+-]?\d+)?'
     INT_VAL    = r'\d+'
 
-    # Identificadores (com cifrão opcional)
-    ID = r'[a-zA-Z_][a-zA-Z0-9_]*\$?'
+    # Identificadores
+    #ID = r'[a-zA-Z_][a-zA-Z0-9_]*\$?'
+    ID = r'[a-zA-Z_][a-zA-Z0-9_]*'
+
 
     # Special cases
     def ID(self, t):
@@ -146,7 +150,8 @@ class UChuckLexer(Lexer):
         last_cr = self.text.rfind('\n', 0, token.index)
         return token.index - last_cr
 
-    @_(r'"(\\["\\nrt]|[^"\\\n])*')
+    #@_(r'"(\\["\\nrt]|[^"\\\n])*')
+    @_(r'"([^"\\\n]|\\.)*(\\)?$')
     def error_string(self, t):
         self._error("Unterminated string literal", t)
 
