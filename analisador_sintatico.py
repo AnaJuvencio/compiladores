@@ -101,12 +101,15 @@ class UChuckParser(Parser):
     @_('IF LPAREN expression RPAREN statement ELSE statement')
     def selection_statement(self, p):
         coord = self._token_coord(p)
-        return (f'if_else @ {coord[0]}:{coord[1]}', p.expression, p.statement0, p.statement1)
+        return (f'if @ {coord[0]}:{coord[1]}', p.expression, p.statement0, p.statement1)
 
     @_('IF LPAREN expression RPAREN statement')
     def selection_statement(self, p):
         coord = self._token_coord(p)
-        return (f'if @ {coord[0]}:{coord[1]}', p.expression, p.statement)
+        if isinstance(p.statement, tuple) and len(p.statement) == 1 and (
+            p.statement[0].startswith('break @') or p.statement[0].startswith('continue @')):
+            return (f'if @ {coord[0]}:{coord[1]}', p.expression, p.statement[0], None)
+        return (f'if @ {coord[0]}:{coord[1]}', p.expression, p.statement, None)
 
 
     # <loop_statement> ::= "while" "(" <expression> ")" <statement>
@@ -361,12 +364,12 @@ class UChuckParser(Parser):
     @_('TRUE')
     def literal(self, p):
         coord = self._token_coord(p)
-        return f'literal: bool, True @ {coord[0]}:{coord[1]}'
+        return f'literal: int, 1 @ {coord[0]}:{coord[1]}'
 
     @_('FALSE')
     def literal(self, p):
         coord = self._token_coord(p)
-        return f'literal: bool, False @ {coord[0]}:{coord[1]}'
+        return f'literal: int, 0 @ {coord[0]}:{coord[1]}'
 
 
     # <location> ::= <identifier>

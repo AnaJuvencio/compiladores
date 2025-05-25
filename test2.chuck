@@ -1,0 +1,27 @@
+/* Display all prime numbers between 2 and 1000: */
+
+2 => int n1;
+1000 => int n2;
+
+int i;
+int j;
+int flag;
+
+n1 => i;
+while( i < n2 )
+{
+    1 => flag;
+	2 => j;
+	while( j < i/2 )
+	{
+        if( i%j == 0 )
+		{
+            0 => flag;
+            break;
+        }
+		j + 1 => j;
+	}
+    if( flag == 1 )
+        <<< i, " " >>>;
+	i + 1 => i;
+}
