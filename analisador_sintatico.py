@@ -17,6 +17,7 @@ class UChuckParser(Parser):
         ('left', 'LT', 'LE', 'GT', 'GE'),
         ('left', 'PLUS', 'MINUS'),
         ('left', 'TIMES', 'DIVIDE', 'PERCENT'),
+        ('right', 'UMINUS'),
         ('right', 'EXCLAMATION'),
     )
 
@@ -147,15 +148,12 @@ class UChuckParser(Parser):
 
     # <expression> ::= <chuck_expression> { "," <chuck_expression> }*
 
-    @_('expression COMMA chuck_expression')
+    @_('chuck_expression COMMA expression')
     def expression(self, p):
         if isinstance(p.expression, tuple) and p.expression[0] == 'expr_list':
-            return ('expr_list', p.expression[1] + [p.chuck_expression])
+            return ('expr_list', [p.chuck_expression] + p.expression[1])
         else:
-            return ('expr_list', [p.expression, p.chuck_expression])
-
-
-
+            return ('expr_list', [p.chuck_expression, p.expression])
 
 
     @_('chuck_expression')
@@ -299,7 +297,7 @@ class UChuckParser(Parser):
         coord = self._token_coord(p)
         return (f'unary_op: {p.unary_operator} @ {coord[0]}:{coord[1]}', p.unary_expression)
 
-    @_('MINUS unary_expression %prec EXCLAMATION')
+    @_('MINUS unary_expression %prec UMINUS')
     def unary_expression(self, p):
         coord = self._token_coord(p)
         return (f'unary_op: - @ {coord[0]}:{coord[1]}', p.unary_expression)
