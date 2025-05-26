@@ -46,7 +46,7 @@ class UChuckParser(Parser):
     # <program> ::= <statement_list> EOF
     @_('statement_list')
     def program(self, p):
-        return ('program', p.statement_list)  # NÃO desempacote com *
+        return ('program', p.statement_list)  
 
     @_('statement statement_list')
     def statement_list(self, p):
@@ -89,12 +89,12 @@ class UChuckParser(Parser):
     @_('BREAK SEMI')
     def jump_statement(self, p):
         coord = self._token_coord(p)
-        return (f'break @ {coord[0]}:{coord[1]}',)
+        return f'break @ {coord[0]}:{coord[1]}'  
 
     @_('CONTINUE SEMI')
     def jump_statement(self, p):
         coord = self._token_coord(p)
-        return (f'continue @ {coord[0]}:{coord[1]}',)
+        return f'continue @ {coord[0]}:{coord[1]}'  
 
 
     # <selection_statement> ::= "if" "(" <expression> ")" <statement> { "else" <statement> }?
@@ -106,9 +106,8 @@ class UChuckParser(Parser):
     @_('IF LPAREN expression RPAREN statement')
     def selection_statement(self, p):
         coord = self._token_coord(p)
-        if isinstance(p.statement, tuple) and len(p.statement) == 1 and (
-            p.statement[0].startswith('break @') or p.statement[0].startswith('continue @')):
-            return (f'if @ {coord[0]}:{coord[1]}', p.expression, p.statement[0], None)
+        if isinstance(p.statement, str) and (p.statement.startswith('break @') or p.statement.startswith('continue @')):
+            return (f'if @ {coord[0]}:{coord[1]}', p.expression, p.statement, None)
         return (f'if @ {coord[0]}:{coord[1]}', p.expression, p.statement, None)
 
 
@@ -150,7 +149,14 @@ class UChuckParser(Parser):
 
     @_('expression COMMA chuck_expression')
     def expression(self, p):
-        return ('comma', p.expression, p.chuck_expression)
+        if isinstance(p.expression, tuple) and p.expression[0] == 'expr_list':
+            return ('expr_list', p.expression[1] + [p.chuck_expression])
+        else:
+            return ('expr_list', [p.expression, p.chuck_expression])
+
+
+
+
 
     @_('chuck_expression')
     def expression(self, p):
@@ -334,7 +340,10 @@ class UChuckParser(Parser):
     @_('L_HACK expression R_HACK')
     def primary_expression(self, p):
         coord = self._token_coord(p)
-        return (f'print @ {coord[0]}:{coord[1]}', p.expression)
+        if not isinstance(p.expression, tuple) or p.expression[0] != 'expr_list':
+            return (f'print @ {coord[0]}:{coord[1]}', p.expression)
+        return (f'print @ {coord[0]}:{coord[1]}', ('expr_list', p.expression[1]))
+
 
     @_('LPAREN expression RPAREN')
     def primary_expression(self, p):
@@ -371,12 +380,14 @@ class UChuckParser(Parser):
         coord = self._token_coord(p)
         return f'literal: int, 0 @ {coord[0]}:{coord[1]}'
 
+    
 
     # <location> ::= <identifier>
     @_('ID')
     def location(self, p):
         coord = self._token_coord(p)
         return f'location: {p.ID} @ {coord[0]}:{coord[1]}'
+    
 
 def build_tree(root):
     return '\n'.join(_build_tree(root))
@@ -419,5 +430,3 @@ def main(args):
         st = parser.parse(f.read())
         if st is not None:
             print(build_tree(st))
-
-

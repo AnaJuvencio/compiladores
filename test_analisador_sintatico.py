@@ -2,7 +2,7 @@ import sys
 from analisador_sintatico import main
 
 # Criação do arquivo de teste no mesmo diretório
-test_file = "test.chuck"
+test_file = "test1.chuck"
 
 # Executa o analisador léxico no arquivo de teste
 if __name__ == "__main__":
