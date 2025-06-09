@@ -1,7 +1,7 @@
 import sys
 from sly import Parser
 from analisador_lexico import UChuckLexer
-from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, Print, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList
+from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, Break, Continue
 
 class UChuckParser(Parser):
     """A parser for the uChuck language."""
@@ -48,11 +48,12 @@ class UChuckParser(Parser):
     # <program> ::= <statement_list> EOF
     @_('statement_list')
     def program(self, p):
-        return Program(p.statement_list)  
-
-    @_('statement statement_list')
+        return Program(p.statement_list)
+  
+    
+    @_('statement_list statement')
     def statement_list(self, p):
-        return [p.statement] + p.statement_list
+        return p.statement_list + [p.statement]
 
     @_('statement')
     def statement_list(self, p):
@@ -91,22 +92,25 @@ class UChuckParser(Parser):
     @_('BREAK SEMI')
     def jump_statement(self, p):
         coord = self._token_coord(p)
-        return f'break @ {coord[0]}:{coord[1]}'  
+        return Break(coord=coord)
 
     @_('CONTINUE SEMI')
     def jump_statement(self, p):
         coord = self._token_coord(p)
-        return f'continue @ {coord[0]}:{coord[1]}'  
+        return Continue(coord=coord)
+ 
 
 
     # <selection_statement> ::= "if" "(" <expression> ")" <statement> { "else" <statement> }?
     @_('IF LPAREN expression RPAREN statement ELSE statement')
     def selection_statement(self, p):
-         return IfStatement(p.expression, p.statement0, p.statement1)
+        coord = self._token_coord(p)
+        return IfStatement(p.expression, p.statement0, p.statement1, coord=coord)
 
     @_('IF LPAREN expression RPAREN statement')
     def selection_statement(self, p):
-        return IfStatement(p.expression, p.statement, None)
+        coord = self._token_coord(p)
+        return IfStatement(p.expression, p.statement, None, coord=coord)
 
 
 
@@ -114,54 +118,56 @@ class UChuckParser(Parser):
     @_('WHILE LPAREN expression RPAREN statement')
     def loop_statement(self, p):
         coord = self._token_coord(p)
-        
-        # Se for lista, empacota em um StmtList
-        body = p.statement
-        if isinstance(p.statement, list):
-            body = StmtList(p.statement, coord)
-        
-        return WhileStatement(p.expression, body, coord)
-
+        return WhileStatement(p.expression, p.statement, coord=coord)
 
 
 
     # <code_segment> ::= "{" { <statement_list> }? "}"
     @_('LBRACE statement_list RBRACE')
-    def statement(self, p):
+    def code_segment(self, p):
         coord = self._token_coord(p)
-        return StmtList(p.statement_list, coord)
+        return StmtList(p.statement_list, coord=coord)
 
     @_('LBRACE RBRACE')
     def code_segment(self, p):
-        return []
+        coord = self._token_coord(p)
+        return StmtList([], coord=coord)
+
 
 
 
     # <expression_statement> ::= { <expression> }? ";"
     @_('expression SEMI')
     def expression_statement(self, p):
-        return ExpressionAsStatement(p.expression)
+        coord = self._token_coord(p)
+        return ExpressionAsStatement(p.expression, coord=coord)
 
     @_('SEMI')
     def expression_statement(self, p):
-        return ('expr', None)
+        coord = self._token_coord(p)
+        return ExpressionAsStatement(None, coord=coord)
+
 
     # <expression> ::= <chuck_expression> { "," <chuck_expression> }*
 
     @_('chuck_expression COMMA expression')
     def expression(self, p):
-        return [p.chuck_expression] + (p.expression if isinstance(p.expression, list) else [p.expression])
+        if isinstance(p.expression, tuple) and p.expression[0] == 'expr_list':
+            return ('expr_list', [p.chuck_expression] + p.expression[1])
+        else:
+            return ('expr_list', [p.chuck_expression, p.expression])
+
 
     @_('chuck_expression')
     def expression(self, p):
         return p.chuck_expression
 
+
+    # <chuck_expression> ::= { <chuck_expression> "=>" }? <decl_expression>
     @_('chuck_expression CHUCK decl_expression')
     def chuck_expression(self, p):
         coord = self._token_coord(p)
-        return ChuckOp(p.chuck_expression, p.decl_expression, coord=coord)
-
-
+        return ChuckOp(source=p.chuck_expression, target=p.decl_expression, coord=coord)
 
 
     @_('decl_expression')
@@ -169,12 +175,13 @@ class UChuckParser(Parser):
         return p.decl_expression
 
 
-
     # <decl_expression> ::= <binary_expression>
     #                     | <type_decl> <identifier>
     @_('type_decl ID')
     def decl_expression(self, p):
-        return VarDecl(p.type_decl, p.ID)
+        coord = self._token_coord(p)
+        return VarDecl(p.type_decl, p.ID, coord=coord)
+
 
     @_('binary_expression')
     def decl_expression(self, p):
@@ -197,6 +204,7 @@ class UChuckParser(Parser):
         return p.ID
 
 
+
     # <binary_expression> ::= <unary_expression>
     #                       | <binary_expression> "+"  <binary_expression>
     #                       | <binary_expression> "-"  <binary_expression>
@@ -213,75 +221,91 @@ class UChuckParser(Parser):
     #                       | <binary_expression> "||" <binary_expression>
     @_('binary_expression PLUS binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('+', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('+', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression MINUS binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('-', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('-', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression TIMES binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('*', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('*', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression DIVIDE binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('/', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('/', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression PERCENT binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('%', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('%', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression LE binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('<=', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('<=', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression LT binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('<', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('<', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression GE binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('>=', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('>=', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression GT binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('>', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('>', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression EQ binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('==', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('==', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression NEQ binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('!=', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('!=', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression AND binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('&&', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('&&', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression OR binary_expression')
     def binary_expression(self, p):
-        return BinaryOp('||', p.binary_expression0, p.binary_expression1)
+        coord = self._token_coord(p)
+        return BinaryOp('||', p.binary_expression0, p.binary_expression1, coord)
+
 
     @_('unary_expression')
     def binary_expression(self, p):
         return p.unary_expression
 
 
-
     # <unary_expression> ::= <primary_expression>
     #                      | <unary_operator> <unary_expression>
     @_('unary_operator unary_expression')
     def unary_expression(self, p):
-        return UnaryOp(p.unary_operator, p.unary_expression)
+        coord = self._token_coord(p)
+        return UnaryOp(p.unary_operator, p.unary_expression, coord=coord)
 
     @_('MINUS unary_expression %prec UMINUS')
     def unary_expression(self, p):
-        return UnaryOp('-', p.unary_expression)
+        coord = self._token_coord(p)
+        return UnaryOp('-', p.unary_expression, coord=coord)
 
     @_('primary_expression')
     def unary_expression(self, p):
         return p.primary_expression
+
 
 
     # <unary_operator> ::= "+"
@@ -315,7 +339,7 @@ class UChuckParser(Parser):
     @_('L_HACK expression R_HACK')
     def primary_expression(self, p):
         coord = self._token_coord(p)
-        return Print(p.expression, coord)
+        return PrintStatement(p.expression, coord=coord)
 
 
 
@@ -332,24 +356,27 @@ class UChuckParser(Parser):
     @_('INT_VAL')
     def literal(self, p):
         coord = self._token_coord(p)
-        return Literal('int', p.INT_VAL, coord)
-
+        return Literal('int', p.INT_VAL, coord=coord)
 
     @_('FLOAT_VAL')
     def literal(self, p):
-        return Literal('float', p.FLOAT_VAL)
+        coord = self._token_coord(p)
+        return Literal('float', p.FLOAT_VAL, coord=coord)
 
     @_('STRING_LIT')
     def literal(self, p):
-        return Literal('string', p.STRING_LIT)
+        coord = self._token_coord(p)
+        return Literal('string', p.STRING_LIT, coord=coord)
 
     @_('TRUE')
     def literal(self, p):
-        return Literal('int', 1)
+        coord = self._token_coord(p)
+        return Literal('int', 1, coord=coord)
 
     @_('FALSE')
     def literal(self, p):
-        return Literal('int', 0)
+        coord = self._token_coord(p)
+        return Literal('int', 0, coord=coord)
 
     
 
@@ -357,7 +384,7 @@ class UChuckParser(Parser):
     @_('ID')
     def location(self, p):
         coord = self._token_coord(p)
-        return Location(p.ID, coord)
+        return Location(p.ID, coord=coord)
 
     
 

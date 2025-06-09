@@ -79,42 +79,61 @@ class Node:
     for (child_name, child) in self.children():
       child.show(buf, offset + 4, attrnames, nodenames, child_name)
 
+class Program(Node):
+    __slots__ = ("statements",)
+
+    def __init__(self, statements):
+        super().__init__()
+        self.statements = statements
+
+    def children(self):
+        return [(f"statements[{i}]", stmt) for i, stmt in enumerate(self.statements or [])]
+
+    attr_names = ()
+
+    def __repr__(self):
+        return "Program"
 
 
 class ChuckOp(Node):
     __slots__ = ("source", "target", "coord")
 
     def __init__(self, source, target, coord=None):
-        super().__init__()
-        self.source = source  # Literal (valor)
-        self.target = target  # VarDecl
-        self.coord = coord
+      super().__init__()
+      self.source = source
+      self.target = target
+      self.coord = coord
 
     def children(self):
-        return (None, self.source), (None, self.target)
-
+      return (None, self.target), (None, self.source)
     attr_names = ("coord",)
 
     def __repr__(self):
-        return f"ChuckOp: @ {self.coord[0]}:{self.coord[1]}"
-
+      return f"ChuckOp: @ {self.coord[0]}:{self.coord[1]}"
 
 
 
 class IfStatement(Node):
-  __slots__ = ("condition", "then_branch", "else_branch", "coord")
-  def __init__(self, condition, then_branch, else_branch=None, coord=None):
-    super().__init__()
-    self.condition = condition
-    self.then_branch = then_branch
-    self.else_branch = else_branch
-    self.coord = coord
-  def children(self):
-    lst = [("condition", self.condition), ("then_branch", self.then_branch)]
-    if self.else_branch is not None:
-      lst.append(("else_branch", self.else_branch))
-    return tuple(lst)
-  attr_names = ("coord",)
+    __slots__ = ("condition", "if_body", "else_body", "coord")
+    
+    def __init__(self, condition, if_body, else_body=None, coord=None):
+        super().__init__()
+        self.condition = condition
+        self.if_body = if_body
+        self.else_body = else_body
+        self.coord = coord
+
+    def children(self):
+        children = [("condition", self.condition), ("if_body", self.if_body)]
+        if self.else_body is not None:
+            children.append(("else_body", self.else_body))
+        return tuple(children)
+
+    attr_names = ("coord",)
+
+    def __repr__(self):
+        return f"IfStatement: @ {self.coord[0]}:{self.coord[1]}"
+
 
 class WhileStatement(Node):
   __slots__ = ("condition", "body", "coord")
@@ -126,17 +145,18 @@ class WhileStatement(Node):
   def children(self):
     return (("condition", self.condition), ("body", self.body))
   attr_names = ("coord",)
+  def __repr__(self):
+    return f"WhileStatement: @ {self.coord[0]}:{self.coord[1]}"
 
-class Print(Node):
-    __slots__ = ("expression", "coord")
 
-    def __init__(self, expression, coord=None):
-        super().__init__()
-        self.expression = expression
+class PrintStatement(Node):
+    __slots__ = ("exprs", "coord")
+    def __init__(self, exprs, coord=None):
+        self.exprs = exprs if isinstance(exprs, list) else [exprs]
         self.coord = coord
 
     def children(self):
-        return ((None, self.expression),)
+        return [(f"expr[{i}]", e) for i, e in enumerate(self.exprs)]
 
     attr_names = ("coord",)
 
@@ -159,8 +179,8 @@ class BinaryOp(Node):
         return (None, self.left), (None, self.right)
 
     attr_names = ("operator", "coord")
-
-
+    def __repr__(self):
+      return f"BinaryOp: {self.operator} @ {self.coord[0]}:{self.coord[1]}"
 
 class UnaryOp(Node):
   __slots__ = ("operator", "operand", "coord")
@@ -175,62 +195,90 @@ class UnaryOp(Node):
 
 
 class Location(Node):
-  __slots__ = ("name", "coord")
-  def __init__(self, name, coord=None):
-    super().__init__()
-    self.name = name
-    self.coord = coord
-  attr_names = ("name", "coord")
+    __slots__ = ("name", "coord")
+
+    def __init__(self, name, coord=None):
+        super().__init__()
+        self.name = name
+        self.coord = coord
+
+    attr_names = ("name", "coord")
+
+    def __repr__(self):
+        return f"Location: {self.name} @ {self.coord[0]}:{self.coord[1]}"
+
+
+
 
 class Literal(Node):
-  __slots__ = ("tipo", "valor", "coord")
-  def __init__(self, tipo, valor, coord=None):
-    super().__init__()
-    self.tipo = tipo
-    self.valor = valor
-    self.coord = coord
-  def children(self):
-    return ()
-  def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
-    label = f"{_my_node_name or 'Literal'}: {self.tipo}, {self.valor}"
-    if self.coord:
-      label += f" @ {self.coord[0]}:{self.coord[1]}"
-    print(" " * offset + label, file=buf)
+    __slots__ = ("tipo", "valor", "coord")
 
-
-class Program(Node):
-  __slots__ = ("statements",)
-  def __init__(self, statements):
-    super().__init__()
-    self.statements = statements
-  def children(self):
-    return [(f"statements[{i}]", stmt) for i, stmt in enumerate(self.statements or [])]
-
-class VarDecl(Node):
-    __slots__ = ("type", "identifier", "coord")
-    def __init__(self, type, identifier, coord=None):
+    def __init__(self, tipo, valor, coord=None):
         super().__init__()
-        self.type = type
-        self.identifier = identifier
+        self.tipo = tipo
+        self.valor = valor
+        self.coord = coord
+
+    def children(self):
+        return ()
+
+    def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
+        label = f"{_my_node_name or 'Literal'}: {self.tipo}, {self.valor}"
+        if self.coord:
+            label += f" @ {self.coord[0]}:{self.coord[1]}"
+        print(" " * offset + label, file=buf)
+
+    def __repr__(self):
+        return f"{self.tipo}, {self.valor} @ {self.coord[0]}:{self.coord[1]}"
+
+class Type(Node):
+    __slots__ = ("typename", "coord")
+    def __init__(self, typename, coord=None):
+        super().__init__()
+        self.typename = typename
         self.coord = coord
     def children(self):
-        return [
-            ("Location", Location(self.identifier, self.coord)),
-            ("type", Literal("Type", self.type, self.coord))
-        ]
+        return ()
+    attr_names = ("typename", "coord")
+    def __repr__(self):
+        return f"Type: {self.typename} @ {self.coord[0]}:{self.coord[1]}"
+
+class VarDecl(Node):
+    __slots__ = ("typename", "identifier", "coord")
+
+    def __init__(self, typename, identifier, coord=None):
+        super().__init__()
+        self.typename = typename  # "int", "float", etc.
+        self.identifier = identifier
+        self.coord = coord
+
+    def children(self):
+      return (
+          (None, Location(self.identifier, self.coord)),
+          (None, Type(self.typename, self.coord)),
+      )
+
     attr_names = ()
+
+    def __repr__(self):
+        return f"VarDecl: @ {self.coord[0]}:{self.coord[1]}"
+
 
     
 class ExpressionAsStatement(Node):
-    __slots__ = ("expression",)
+    __slots__ = ("expression", "coord")
 
-    def __init__(self, expression):
+    def __init__(self, expression, coord=None):
         super().__init__()
         self.expression = expression
+        self.coord = coord
 
     def children(self):
-        return (("expression", self.expression),)
+        return (("expression", self.expression),) if self.expression is not None else ()
 
+    #attr_names = ("coord",)
+    def __repr__(self):
+        return "ExpressionAsStatement:"
 
 
 class StmtList(Node):
@@ -242,5 +290,35 @@ class StmtList(Node):
     def children(self):
         return [(f"statements[{i}]", stmt) for i, stmt in enumerate(self.statements or [])]
     attr_names = ("coord",)
+    def __repr__(self):
+        return f"StmtList: @ {self.coord[0]}:{self.coord[1]}"
+      
+class Break(Node):
+    __slots__ = ("coord",)
 
+    def __init__(self, coord=None):
+        super().__init__()
+        self.coord = coord
 
+    def children(self):
+        return ()
+
+    attr_names = ("coord",)
+
+    def __repr__(self):
+        return f"break @ {self.coord[0]}:{self.coord[1]}"
+
+class Continue(Node):
+    __slots__ = ("coord",)
+
+    def __init__(self, coord=None):
+        super().__init__()
+        self.coord = coord
+
+    def children(self):
+        return ()
+
+    attr_names = ("coord",)
+
+    def __repr__(self):
+        return f"continue @ {self.coord[0]}:{self.coord[1]}"
