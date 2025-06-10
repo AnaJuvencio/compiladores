@@ -1,99 +1,46 @@
 import sys
 
-def represent_node(obj, indent): 
-  def _repr(obj, indent, printed_set):
-    if isinstance(obj, list):
-      indent += 1
-      sep = ",\n" + (" " * indent)
-      final_sep = ",\n" + (" " * (indent - 1))
-      return (
-        "["
-        + (sep.join((_repr(e, indent, printed_set) for e in obj)))
-        + final_sep
-        + "]"
-      )
-    elif isinstance(obj, Node):
-      if obj in printed_set:
-        return ""
-      printed_set.add(obj)
-      result = obj.__class__.__name__ + "("
-      indent += len(obj.__class__.__name__) + 1
-      attrs = []
-      for name in obj.__slots__:
-        if name == "attrs":
-          continue
-        value = getattr(obj, name)
-        value_str = _repr(value, indent + len(name) + 1, printed_set) if value is not None else "None"
-        attrs.append(name + "=" + value_str)
-      sep = ",\n" + (" " * indent)
-      final_sep = ",\n" + (" " * (indent - 1))
-      result += sep.join(attrs) + final_sep + ")"
-      return result
+def represent_node(obj, indent):
+    if isinstance(obj, Node):
+        return obj.__repr__()
+    elif isinstance(obj, list):
+        return "[" + ", ".join(represent_node(e, indent) for e in obj) + "]"
     elif isinstance(obj, str):
-      return obj
+        return obj
     else:
-      return str(obj)
-
-  return _repr(obj, indent, set())
-
+        return str(obj)
 
 class Node:
-  __slots__ = ("attrs",)
+    __slots__ = ("attrs",)
 
-  def __init__(self):
-    self.attrs = {}
-
-  def children(self):
-    return ()
-
-  attr_names = ()
-
-  def __repr__(self):
-    return represent_node(self, 0)
-
-  def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
-    lead = " " * offset
-    if nodenames and _my_node_name is not None:
-      buf.write(lead + self.__class__.__name__ + " <" + _my_node_name + ">: ")
-      inner_offset = len(self.__class__.__name__ + " <" + _my_node_name + ">: ")
-    else:
-      buf.write(lead + self.__class__.__name__ + ":")
-      inner_offset = len(self.__class__.__name__ + ":")
-
-    if self.attr_names:
-      if attrnames:
-        nvlist = [
-          (n, represent_node(getattr(self, n), offset + inner_offset + 1 + len(n) + 1))
-          for n in self.attr_names if getattr(self, n) is not None
-        ]
-        attrstr = ", ".join("%s=%s" % nv for nv in nvlist)
-      else:
-        vlist = [getattr(self, n) for n in self.attr_names]
-        attrstr = ", ".join(
-          represent_node(v, offset + inner_offset + 1) for v in vlist if v is not None
-        )
-      buf.write(" " + attrstr)
-
-    buf.write("\n")
-
-    for (child_name, child) in self.children():
-      child.show(buf, offset + 4, attrnames, nodenames, child_name)
-
-class Program(Node):
-    __slots__ = ("statements",)
-
-    def __init__(self, statements):
-        super().__init__()
-        self.statements = statements
+    def __init__(self):
+        self.attrs = {}
 
     def children(self):
-        return [(f"statements[{i}]", stmt) for i, stmt in enumerate(self.statements or [])]
+        return ()
 
     attr_names = ()
 
     def __repr__(self):
-        return "Program"
+        return represent_node(self, 0)
 
+    def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
+        lead = " " * offset
+        print(lead + self.__repr__(), file=buf)
+        for (child_name, child) in self.children():
+            if child is not None:
+                child.show(buf, offset + 4, attrnames, nodenames, child_name)
+
+class Program(Node):
+    __slots__ = ("statements",)
+    def __init__(self, statements):
+        super().__init__()
+        self.statements = statements
+    def children(self):
+        return [(f"statements[{i}]", stmt) for i, stmt in enumerate(self.statements or [])]
+    attr_names = ()
+    def __repr__(self):
+        return "Program:"
 
 class ChuckOp(Node):
     __slots__ = ("source", "target", "coord")
@@ -197,19 +144,16 @@ class UnaryOp(Node):
 
 class Location(Node):
     __slots__ = ("name", "coord")
-
     def __init__(self, name, coord=None):
         super().__init__()
         self.name = name
         self.coord = coord
-
     attr_names = ("name", "coord")
-
     def __repr__(self):
-      return f"Location: {self.name} @ {self.coord[0]}:{self.coord[1]}"
-
-
-
+        if self.coord is not None:
+            return f"Location: {self.name} @ {self.coord[0]}:{self.coord[1]}"
+        else:
+            return f"Location: {self.name}"
 
 class Literal(Node):
     __slots__ = ("tipo", "valor", "coord")
@@ -230,7 +174,7 @@ class Literal(Node):
         print(" " * offset + label, file=buf)
 
     def __repr__(self):
-      return f"{self.tipo}, {self.valor} @ {self.coord[0]}:{self.coord[1]}"
+        return f"Literal: {self.tipo}, {self.valor} @ {self.coord[0]}:{self.coord[1]}"
 
 class Type(Node):
     __slots__ = ("typename", "coord")
@@ -241,29 +185,24 @@ class Type(Node):
     def children(self):
         return ()
     attr_names = ("typename", "coord")
-   
     def __repr__(self):
-      return f"Type: {self.typename} @ {self.coord[0]}:{self.coord[1]}"
+        return f"Type: {self.typename} @ {self.coord[0]}:{self.coord[1]}"
 
 class VarDecl(Node):
     __slots__ = ("typename", "identifier", "coord")
-
     def __init__(self, typename, identifier, coord=None):
         super().__init__()
-        self.typename = typename  # "int", "float", etc.
+        self.typename = typename
         self.identifier = identifier
         self.coord = coord
-
     def children(self):
-      return (
-          (None, Location(self.identifier, self.coord)),
-          (None, Type(self.typename, self.coord)),
-      )
-
+        # Só inclui Type como filho!
+        return (
+            (None, Type(self.typename, self.coord)),
+        )
     attr_names = ()
-
     def __repr__(self):
-      return f"VarDecl: ID(name={self.identifier}) @ {self.coord[0]}:{self.coord[1]}"
+        return f"VarDecl: ID(name={self.identifier})"
 
 
     
