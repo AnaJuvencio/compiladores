@@ -1,10 +1,51 @@
-/* print values of factorials */
-1 => int n;
-1 => int value;
+// Printing and math expressions involving ints and floats
+<<< 3 + 4 * -5 >>>;
+<<< 3.4 - 5.6 / -7.8 >>>;
 
+// Characters
+<<< "x" >>>;
+<<< "\n" >>>;
+
+// Constants
+3.14159 => float pi;
+2.0 * pi => float tau;
+
+// Variables
+float r;
+float a;
+
+// Assignment and lookup of variables
+2.0 => r;
+pi*r*r => a;
+
+// Relations, booleans, and boolean expressions
+true => int c;
+a < 100.0 => c;
+(a > 0.0) && (a < 10.0) => int d;
+<<< d >>>;
+
+// Conditionals
+if( a > 0.0 )
+   <<<  a >>>;
+else
+   <<< -a >>>;
+
+// Loops
+0 => int n;
 while( n < 10 )
 {
-	value * n => value;
-	<<< value >>>;
-	n + 1 => n;
+    <<< n >>>;
+    n + 1 => n;
+}
+
+// Loop control flow (break/continue)
+0 => n;
+while( true )
+{
+    n + 1 => n;
+    if( n > 10 )
+         break;
+    if( n == 5 )
+         continue;
+    <<< n >>>;
 }

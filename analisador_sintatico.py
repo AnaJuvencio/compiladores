@@ -1,7 +1,7 @@
 import sys
 from sly import Parser
 from analisador_lexico import UChuckLexer
-from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, Break, Continue
+from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, Break, Continue, ExprList, Coord
 
 class UChuckParser(Parser):
     """A parser for the uChuck language."""
@@ -33,7 +33,8 @@ class UChuckParser(Parser):
 
     # Internal auxiliary methods
     def _token_coord(self, p):
-        return self.lexer._make_location(p)
+        line, column = self.lexer._make_location(p)
+        return Coord(line, column)
 
     # Error handling rule
     def error(self, p):
@@ -152,10 +153,12 @@ class UChuckParser(Parser):
 
     @_('chuck_expression COMMA expression')
     def expression(self, p):
-        if isinstance(p.expression, tuple) and p.expression[0] == 'expr_list':
-            return ('expr_list', [p.chuck_expression] + p.expression[1])
+        coord = self._token_coord(p)
+        if isinstance(p.expression, ExprList):
+            return ExprList([p.chuck_expression] + p.expression.exprs, coord=coord)
         else:
-            return ('expr_list', [p.chuck_expression, p.expression])
+            return ExprList([p.chuck_expression, p.expression], coord=coord)
+
 
 
     @_('chuck_expression')

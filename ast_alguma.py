@@ -1,19 +1,57 @@
 import sys
 
-def represent_node(obj, indent):
-    if isinstance(obj, Node):
-        return obj.__repr__()
-    elif isinstance(obj, list):
-        return "[" + ", ".join(represent_node(e, indent) for e in obj) + "]"
-    elif isinstance(obj, str):
-        return obj
-    else:
-        return str(obj)
+def represent_node(obj, indent=0):
+    def _repr(obj, indent, printed_set):
+        if isinstance(obj, list):
+            if not obj:
+                return "[]"
+            indent += 4
+            sep = ",\n" + (" " * indent)
+            return (
+                "[\n"
+                + sep.join(_repr(e, indent, printed_set) for e in obj)
+                + "\n" + (" " * (indent - 4)) + "]"
+            )
+        elif isinstance(obj, Node):
+            if obj in printed_set:
+                return f"{obj.__class__.__name__}(...)"
+            printed_set.add(obj)
+
+            class_name = obj.__class__.__name__
+            attrs = []
+            indent += 4
+            for name in obj.__slots__:
+                if name == "attrs":  # ignora campo interno
+                    continue
+                value = getattr(obj, name, None)
+                if value is None:
+                    continue
+                value_str = _repr(value, indent + len(name) + 1, printed_set)
+                attrs.append(f"{name}={value_str}")
+            sep = ",\n" + (" " * indent)
+            result = f"{class_name}(\n" + (" " * indent) + sep.join(attrs) + "\n" + (" " * (indent - 4)) + ")"
+            return result
+        elif isinstance(obj, tuple) and len(obj) == 2 and all(isinstance(x, int) for x in obj):
+            return f"{obj[0]}:{obj[1]}"
+        elif isinstance(obj, str):
+            return f"'{obj}'"
+        else:
+            return str(obj)
+
+    printed_set = set()
+    return _repr(obj, indent, printed_set)
+
 
 class Node:
-    __slots__ = ("attrs",)
+    """
+    Base class for AST nodes.
 
-    def __init__(self):
+    Defines `__slots__` to save memory and a `show()` method for printing.
+    """
+    __slots__ = ("coord", "attrs")
+
+    def __init__(self, coord=None):
+        self.coord = coord
         self.attrs = {}
 
     def children(self):
@@ -22,7 +60,7 @@ class Node:
     attr_names = ()
 
     def __repr__(self):
-        return represent_node(self, 0)
+        return f"{self.__class__.__name__}"
 
     def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
         lead = " " * offset
@@ -31,13 +69,34 @@ class Node:
             if child is not None:
                 child.show(buf, offset + 4, attrnames, nodenames, child_name)
 
+
+class Coord:
+    """Coordinates of a syntactic element. Consists of:
+    - Line number
+    - (optional) column number
+    """
+    __slots__ = ("line", "column")
+
+    def __init__(self, line, column=None):
+        self.line = line
+        self.column = column
+
+    def __str__(self):
+        if self.line and self.column is not None:
+            return "@ %s:%s" % (self.line, self.column)
+        elif self.line:
+            return "@ %s" % (self.line)
+        else:
+            return ""
+
+
 class Program(Node):
-    __slots__ = ("statements",)
-    def __init__(self, statements):
+    __slots__ = ("stmts",)
+    def __init__(self, stmts):
         super().__init__()
-        self.statements = statements
+        self.stmts = stmts
     def children(self):
-        return [(f"statements[{i}]", stmt) for i, stmt in enumerate(self.statements or [])]
+        return tuple((None, stmt) for stmt in (self.stmts or []))
     attr_names = ()
     def __repr__(self):
         return "Program:"
@@ -57,7 +116,7 @@ class ChuckOp(Node):
     attr_names = ("coord",)
 
     def __repr__(self):
-      return f"ChuckOp: @ {self.coord[0]}:{self.coord[1]}"
+      return f"ChuckOp: @ {self.coord.line}:{self.coord.column}"
 
 
 
@@ -72,44 +131,40 @@ class IfStatement(Node):
         self.coord = coord
 
     def children(self):
-        children = [("condition", self.condition), ("if_body", self.if_body)]
+        children = [(None, self.condition), (None, self.if_body)]
         if self.else_body is not None:
-            children.append(("else_body", self.else_body))
+            children.append((None, self.else_body))
         return tuple(children)
 
     attr_names = ("coord",)
 
     def __repr__(self):
-        return f"IfStatement: @ {self.coord[0]}:{self.coord[1]}"
+        return f"IfStatement: @ {self.coord.line}:{self.coord.column}"
 
 
 class WhileStatement(Node):
-  __slots__ = ("condition", "body", "coord")
-  def __init__(self, condition, body, coord=None):
-    super().__init__()
-    self.condition = condition
-    self.body = body
-    self.coord = coord
-  def children(self):
-    return (("condition", self.condition), ("body", self.body))
-  attr_names = ("coord",)
-  def __repr__(self):
-    return f"WhileStatement: @ {self.coord[0]}:{self.coord[1]}"
+    __slots__ = ("condition", "body", "coord")
+    def __init__(self, condition, body, coord=None):
+        super().__init__()
+        self.condition = condition
+        self.body = body
+        self.coord = coord
+    def children(self):
+        return (None, self.condition), (None, self.body)
+    def __repr__(self):
+        return f"WhileStatement: @ {self.coord.line}:{self.coord.column}"
 
 
 class PrintStatement(Node):
-    __slots__ = ("exprs", "coord")
-    def __init__(self, exprs, coord=None):
-        self.exprs = exprs if isinstance(exprs, list) else [exprs]
+    __slots__ = ("expr", "coord")
+    def __init__(self, expr, coord=None):
+        super().__init__()
+        self.expr = expr
         self.coord = coord
-
     def children(self):
-        return [(f"expr[{i}]", e) for i, e in enumerate(self.exprs)]
-
-    attr_names = ("coord",)
-
+        return (None, self.expr),
     def __repr__(self):
-        return f"PrintStatement: @ {self.coord[0]}:{self.coord[1]}"
+        return f"PrintStatement: @ {self.coord.line}:{self.coord.column}"
 
 
 
@@ -128,18 +183,19 @@ class BinaryOp(Node):
 
     attr_names = ("operator", "coord")
     def __repr__(self):
-      return f"BinaryOp: {self.operator} @ {self.coord[0]}:{self.coord[1]}"
+      return f"BinaryOp: {self.operator} @ {self.coord.line}:{self.coord.column}"
 
 class UnaryOp(Node):
-  __slots__ = ("operator", "operand", "coord")
-  def __init__(self, operator, operand, coord=None):
-    super().__init__()
-    self.operator = operator
-    self.operand = operand
-    self.coord = coord
-  def children(self):
-    return (("operand", self.operand),)
-  attr_names = ("operator", "coord")
+    __slots__ = ("op", "operand", "coord")
+    def __init__(self, op, operand, coord=None):
+        super().__init__()
+        self.op = op
+        self.operand = operand
+        self.coord = coord
+    def children(self):
+        return (None, self.operand),
+    def __repr__(self):
+        return f"UnaryOp: {self.op} @ {self.coord.line}:{self.coord.column}"
 
 
 class Location(Node):
@@ -151,7 +207,7 @@ class Location(Node):
     attr_names = ("name", "coord")
     def __repr__(self):
         if self.coord is not None:
-            return f"Location: {self.name} @ {self.coord[0]}:{self.coord[1]}"
+            return f"Location: {self.name} @ {self.coord.line}:{self.coord.column}"
         else:
             return f"Location: {self.name}"
 
@@ -170,11 +226,11 @@ class Literal(Node):
     def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
         label = f"{_my_node_name or 'Literal'}: {self.tipo}, {self.valor}"
         if self.coord:
-            label += f" @ {self.coord[0]}:{self.coord[1]}"
+            label += f" @ {self.coord.line}:{self.coord.column}"
         print(" " * offset + label, file=buf)
 
     def __repr__(self):
-        return f"Literal: {self.tipo}, {self.valor} @ {self.coord[0]}:{self.coord[1]}"
+        return f"Literal: {self.tipo}, {self.valor} @ {self.coord.line}:{self.coord.column}"
 
 class Type(Node):
     __slots__ = ("typename", "coord")
@@ -186,7 +242,7 @@ class Type(Node):
         return ()
     attr_names = ("typename", "coord")
     def __repr__(self):
-        return f"Type: {self.typename} @ {self.coord[0]}:{self.coord[1]}"
+        return f"Type: {self.typename} @ {self.coord.line}:{self.coord.column}"
 
 class VarDecl(Node):
     __slots__ = ("typename", "identifier", "coord")
@@ -215,7 +271,7 @@ class ExpressionAsStatement(Node):
         self.coord = coord
 
     def children(self):
-        return (("expression", self.expression),) if self.expression is not None else ()
+        return ((None, self.expression),) if self.expression is not None else ()
 
     #attr_names = ("coord",)
     def __repr__(self):
@@ -223,16 +279,16 @@ class ExpressionAsStatement(Node):
 
 
 class StmtList(Node):
-    __slots__ = ("statements", "coord")
-    def __init__(self, statements, coord=None):
+    __slots__ = ("stmts", "coord")
+    def __init__(self, stmts, coord=None):
         super().__init__()
-        self.statements = statements
+        self.stmts = stmts
         self.coord = coord
     def children(self):
-        return [(f"statements[{i}]", stmt) for i, stmt in enumerate(self.statements or [])]
+      return tuple((None, stmt) for stmt in (self.stmts or []))
     attr_names = ("coord",)
     def __repr__(self):
-        return f"StmtList: @ {self.coord[0]}:{self.coord[1]}"
+        return f"StmtList: @ {self.coord.line}:{self.coord.column}"
       
 class Break(Node):
     __slots__ = ("coord",)
@@ -247,7 +303,7 @@ class Break(Node):
     attr_names = ("coord",)
 
     def __repr__(self):
-        return f"break @ {self.coord[0]}:{self.coord[1]}"
+        return f"BreakStatement: @ {self.coord.line}:{self.coord.column}"
 
 class Continue(Node):
     __slots__ = ("coord",)
@@ -262,4 +318,33 @@ class Continue(Node):
     attr_names = ("coord",)
 
     def __repr__(self):
-        return f"continue @ {self.coord[0]}:{self.coord[1]}"
+        return f"ContinueStatement: @ {self.coord.line}:{self.coord.column}"
+      
+class ID(Node):
+    __slots__ = ("name", "coord")
+
+    def __init__(self, name, coord=None):
+        super().__init__()
+        self.name = name
+        self.coord = coord
+
+    def children(self):
+        return ()
+
+    def __repr__(self):
+        return f"ID(name={self.name})"
+      
+class ExprList(Node):
+    __slots__ = ("exprs", "coord")
+
+    def __init__(self, exprs, coord=None):
+        super().__init__()
+        self.exprs = exprs
+        self.coord = coord
+
+    def children(self):
+        return tuple((None, expr) for expr in self.exprs)
+
+    def __repr__(self):
+        return "ExprList:"
+

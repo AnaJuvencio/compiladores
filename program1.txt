@@ -1,0 +1,10 @@
+/* print values of factorials */
+1 => int n;
+1 => int value;
+
+while( n < 10 )
+{
+	value * n => value;
+	<<< value >>>;
+	n + 1 => n;
+}
