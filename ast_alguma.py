@@ -106,6 +106,7 @@ class ChuckOp(Node):
 
     def children(self):
       return (None, self.target), (None, self.source)
+    
     attr_names = ("coord",)
 
     def __repr__(self):
@@ -205,7 +206,7 @@ class Location(Node):
     attr_names = ("name", "coord")
 
     def __repr__(self):
-        return f"Location: {self.name} @ {self.coord[0]}:{self.coord[1]}"
+      return f"Location: {self.name} @ {self.coord[0]}:{self.coord[1]}"
 
 
 
@@ -229,7 +230,7 @@ class Literal(Node):
         print(" " * offset + label, file=buf)
 
     def __repr__(self):
-        return f"{self.tipo}, {self.valor} @ {self.coord[0]}:{self.coord[1]}"
+      return f"{self.tipo}, {self.valor} @ {self.coord[0]}:{self.coord[1]}"
 
 class Type(Node):
     __slots__ = ("typename", "coord")
@@ -240,8 +241,9 @@ class Type(Node):
     def children(self):
         return ()
     attr_names = ("typename", "coord")
+   
     def __repr__(self):
-        return f"Type: {self.typename} @ {self.coord[0]}:{self.coord[1]}"
+      return f"Type: {self.typename} @ {self.coord[0]}:{self.coord[1]}"
 
 class VarDecl(Node):
     __slots__ = ("typename", "identifier", "coord")
@@ -261,7 +263,7 @@ class VarDecl(Node):
     attr_names = ()
 
     def __repr__(self):
-        return f"VarDecl: @ {self.coord[0]}:{self.coord[1]}"
+      return f"VarDecl: ID(name={self.identifier}) @ {self.coord[0]}:{self.coord[1]}"
 
 
     
