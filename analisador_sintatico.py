@@ -226,7 +226,11 @@ class UChuckParser(Parser):
     @_('binary_expression PLUS binary_expression')
     def binary_expression(self, p):
         coord = self._token_coord(p)
+        # Corrige para casos como: <<< -2 + 3 >>>
+        if isinstance(p.binary_expression0, UnaryOp):
+            coord.column += 1
         return BinaryOp('+', p.binary_expression0, p.binary_expression1, coord=coord)
+
 
     @_('binary_expression MINUS binary_expression')
     def binary_expression(self, p):
