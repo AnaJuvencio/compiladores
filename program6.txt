@@ -1,0 +1,8 @@
+// Exemplo 3:
+
+2 => int a;
+3 => int b;
+if( a < b )
+    <<< a >>>;
+else
+    <<< b >>>;

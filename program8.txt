@@ -1,0 +1,16 @@
+// Exemplo 5:
+
+ 1 => int a;
+ 1 => int b;
+int t;
+ 0 => int n;
+20 => int LAST;
+
+while( n < LAST )
+{
+    <<< a >>>;
+    a + b => t;
+    b => a;
+    t => b;
+    n + 1 => n;
+}

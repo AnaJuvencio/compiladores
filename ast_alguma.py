@@ -60,18 +60,28 @@ class Node:
     attr_names = ()
 
     def __repr__(self):
-        return f"{self.__class__.__name__}"
+        result = self.__class__.__name__
+        if hasattr(self, 'attr_names') and self.attr_names:
+            parts = []
+            for attr in self.attr_names:
+                value = getattr(self, attr, None)
+                parts.append(f"{value}")
+            result += ": " + ", ".join(parts)
+        return result
 
-    def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
-      lead = " " * offset
-      label = self.__repr__()
-      print(lead + label, file=buf)
-      for (child_name, child) in self.children():
-          if child is not None:
-              child.show(buf, offset + 4, attrnames, nodenames, child_name)
-          else:
-              # Exibe mesmo os filhos None como rótulo vazio
-              print(" " * (offset + 4) + f"{child_name}: None", file=buf)
+
+    def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, showcoord=False, _my_node_name=None):
+        lead = " " * offset
+        label = self.__repr__()
+        if showcoord and self.coord:
+            label += f" @ {self.coord.line}:{self.coord.column}"
+        print(lead + label, file=buf)
+        for (child_name, child) in self.children():
+            if child is not None:
+                child.show(buf, offset + 4, attrnames, nodenames, showcoord, child_name)
+            else:
+                print(" " * (offset + 4) + f"{child_name}: None", file=buf)
+
 
 
 class NodeVisitor:
@@ -133,18 +143,13 @@ class ChuckOp(Node):
     __slots__ = ("source", "target", "coord")
 
     def __init__(self, source, target, coord=None):
-      super().__init__()
-      self.source = source
-      self.target = target
-      self.coord = coord
+        super().__init__()
+        self.source = source
+        self.target = target
+        self.coord = coord
 
     def children(self):
-      return (None, self.target), (None, self.source)
-    
-    attr_names = ("coord",)
-
-    def __repr__(self):
-      return f"ChuckOp: @ {self.coord.line}:{self.coord.column}"
+        return (None, self.target), (None, self.source)
 
 
 
@@ -167,7 +172,7 @@ class IfStatement(Node):
     attr_names = ("coord",)
 
     def __repr__(self):
-        return f"IfStatement: @ {self.coord.line}:{self.coord.column}"
+        return f"IfStatement:"
 
 
 class WhileStatement(Node):
@@ -180,7 +185,7 @@ class WhileStatement(Node):
     def children(self):
         return (None, self.condition), (None, self.body)
     def __repr__(self):
-        return f"WhileStatement: @ {self.coord.line}:{self.coord.column}"
+        return f"WhileStatement:"
 
 
 class PrintStatement(Node):
@@ -191,8 +196,6 @@ class PrintStatement(Node):
         self.coord = coord
     def children(self):
         return (None, self.expr),
-    def __repr__(self):
-        return f"PrintStatement: @ {self.coord.line}:{self.coord.column}"
 
 
 
@@ -211,7 +214,8 @@ class BinaryOp(Node):
 
     attr_names = ("operator", "coord")
     def __repr__(self):
-      return f"BinaryOp: {self.operator} @ {self.coord.line}:{self.coord.column}"
+        return f"BinaryOp: {self.operator}"
+
 
 class UnaryOp(Node):
     __slots__ = ("op", "operand", "coord")
@@ -222,55 +226,55 @@ class UnaryOp(Node):
         self.coord = coord
     def children(self):
         return (None, self.operand),
-    def __repr__(self):
-        return f"UnaryOp: {self.op} @ {self.coord.line}:{self.coord.column}"
 
 
 class Location(Node):
     __slots__ = ("name", "coord")
+
     def __init__(self, name, coord=None):
-        super().__init__()
+        super().__init__(coord)
         self.name = name
-        self.coord = coord
-    attr_names = ("name", "coord")
+
+    def children(self):
+        return ()
+
+    attr_names = ("name",)  
     def __repr__(self):
-        if self.coord is not None:
-            return f"Location: {self.name} @ {self.coord.line}:{self.coord.column}"
-        else:
-            return f"Location: {self.name}"
+        return f"Location: {self.name}"
+
+
 
 class Literal(Node):
     __slots__ = ("tipo", "valor", "coord")
 
     def __init__(self, tipo, valor, coord=None):
-        super().__init__()
+        super().__init__(coord)
         self.tipo = tipo
         self.valor = valor
-        self.coord = coord
 
     def children(self):
         return ()
 
-    def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
-        label = f"{_my_node_name or 'Literal'}: {self.tipo}, {self.valor}"
-        if self.coord:
-            label += f" @ {self.coord.line}:{self.coord.column}"
-        print(" " * offset + label, file=buf)
+    attr_names = ("tipo", "valor") 
 
     def __repr__(self):
-        return f"Literal: {self.tipo}, {self.valor} @ {self.coord.line}:{self.coord.column}"
+        return f"Literal: {self.tipo}, {self.valor}"
+
+
 
 class Type(Node):
     __slots__ = ("typename", "coord")
+
     def __init__(self, typename, coord=None):
-        super().__init__()
+        super().__init__(coord)
         self.typename = typename
-        self.coord = coord
+
     def children(self):
         return ()
-    attr_names = ("typename", "coord")
-    def __repr__(self):
-        return f"Type: {self.typename} @ {self.coord.line}:{self.coord.column}"
+
+    attr_names = ("typename",)  
+
+
 
 class VarDecl(Node):
     __slots__ = ("typename", "identifier", "coord")
@@ -289,6 +293,7 @@ class VarDecl(Node):
         return f"VarDecl: ID(name={self.identifier})"
 
 
+
     
 class ExpressionAsStatement(Node):
     __slots__ = ("expression", "coord")
@@ -302,8 +307,6 @@ class ExpressionAsStatement(Node):
         return ((None, self.expression),) if self.expression is not None else ()
 
     #attr_names = ("coord",)
-    def __repr__(self):
-        return "ExpressionAsStatement:"
 
 
 class StmtList(Node):
@@ -316,9 +319,9 @@ class StmtList(Node):
       return tuple((None, stmt) for stmt in (self.stmts or []))
     attr_names = ("coord",)
     def __repr__(self):
-        return f"StmtList: @ {self.coord.line}:{self.coord.column}"
+        return f"StmtList:"
       
-class Break(Node):
+class BreakStatement (Node):
     __slots__ = ("coord",)
 
     def __init__(self, coord=None):
@@ -331,9 +334,9 @@ class Break(Node):
     attr_names = ("coord",)
 
     def __repr__(self):
-        return f"BreakStatement: @ {self.coord.line}:{self.coord.column}"
+        return f"BreakStatement:"
 
-class Continue(Node):
+class ContinueStatement(Node):
     __slots__ = ("coord",)
 
     def __init__(self, coord=None):
@@ -346,7 +349,7 @@ class Continue(Node):
     attr_names = ("coord",)
 
     def __repr__(self):
-        return f"ContinueStatement: @ {self.coord.line}:{self.coord.column}"
+        return f"ContinueStatement:"
       
 class ID(Node):
     __slots__ = ("name", "coord")
@@ -372,7 +375,4 @@ class ExprList(Node):
 
     def children(self):
         return tuple((None, expr) for expr in self.exprs)
-
-    def __repr__(self):
-        return "ExprList:"
 

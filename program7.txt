@@ -1,0 +1,12 @@
+// Exemplo 4:
+
+10 => int n;
+ 1 => int x;
+ 1 => int fact;
+
+while( x < n )
+{
+    fact * x => fact;
+    <<< fact >>>;
+    x + 1 => x;
+}

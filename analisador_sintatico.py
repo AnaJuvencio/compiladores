@@ -1,7 +1,7 @@
 import sys
 from sly import Parser
 from analisador_lexico import UChuckLexer
-from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, Break, Continue, ExprList, Coord
+from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, BreakStatement, ContinueStatement, ExprList, Coord
 
 class UChuckParser(Parser):
     """A parser for the uChuck language."""
@@ -93,12 +93,12 @@ class UChuckParser(Parser):
     @_('BREAK SEMI')
     def jump_statement(self, p):
         coord = self._token_coord(p)
-        return Break(coord=coord)
+        return BreakStatement(coord=coord)
 
     @_('CONTINUE SEMI')
     def jump_statement(self, p):
         coord = self._token_coord(p)
-        return Continue(coord=coord)
+        return ContinueStatement(coord=coord)
  
 
 
@@ -436,10 +436,9 @@ def print_error(msg, x, y):
     # use stdout to match with the output in the .out test files
     print("Lexical error: %s at %d:%d" % (msg, x, y), file=sys.stdout)
 
-
 def main(args):
     parser = UChuckParser(print_error)
     with open(args[0], 'r') if len(args) > 0 else sys.stdin as f:
         ast = parser.parse(f.read())
         if ast is not None:
-            ast.show()  # método show() das classes do ast.py
+            ast.show(showcoord=True)
