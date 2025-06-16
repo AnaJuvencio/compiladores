@@ -222,10 +222,11 @@ class UChuckParser(Parser):
     #                       | <binary_expression> "!=" <binary_expression>
     #                       | <binary_expression> "&&" <binary_expression>
     #                       | <binary_expression> "||" <binary_expression>
+   
     @_('binary_expression PLUS binary_expression')
     def binary_expression(self, p):
         coord = self._token_coord(p)
-        return BinaryOp('+', p.binary_expression0, p.binary_expression1, coord)
+        return BinaryOp('+', p.binary_expression0, p.binary_expression1, coord=coord)
 
     @_('binary_expression MINUS binary_expression')
     def binary_expression(self, p):
@@ -275,16 +276,19 @@ class UChuckParser(Parser):
     @_('binary_expression NEQ binary_expression')
     def binary_expression(self, p):
         coord = self._token_coord(p)
+        coord.column += 1  
         return BinaryOp('!=', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression AND binary_expression')
     def binary_expression(self, p):
         coord = self._token_coord(p)
+        coord.column += 1 
         return BinaryOp('&&', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression OR binary_expression')
     def binary_expression(self, p):
         coord = self._token_coord(p)
+        coord.column += 1  
         return BinaryOp('||', p.binary_expression0, p.binary_expression1, coord)
 
 
@@ -295,15 +299,18 @@ class UChuckParser(Parser):
 
     # <unary_expression> ::= <primary_expression>
     #                      | <unary_operator> <unary_expression>
-    @_('unary_operator unary_expression')
-    def unary_expression(self, p):
-        coord = self._token_coord(p)
-        return UnaryOp(p.unary_operator, p.unary_expression, coord=coord)
-
     @_('MINUS unary_expression %prec UMINUS')
     def unary_expression(self, p):
         coord = self._token_coord(p)
+        coord.column += 1  # ajusta manualmente a coluna
         return UnaryOp('-', p.unary_expression, coord=coord)
+
+    @_('unary_operator unary_expression')
+    def unary_expression(self, p):
+        coord = self._token_coord(p)
+        coord.column += 1  # ajusta também neste caso, se necessário
+        return UnaryOp(p.unary_operator, p.unary_expression, coord=coord)
+
 
     @_('primary_expression')
     def unary_expression(self, p):

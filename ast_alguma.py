@@ -63,12 +63,40 @@ class Node:
         return f"{self.__class__.__name__}"
 
     def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, _my_node_name=None):
-        lead = " " * offset
-        print(lead + self.__repr__(), file=buf)
-        for (child_name, child) in self.children():
-            if child is not None:
-                child.show(buf, offset + 4, attrnames, nodenames, child_name)
+      lead = " " * offset
+      label = self.__repr__()
+      print(lead + label, file=buf)
+      for (child_name, child) in self.children():
+          if child is not None:
+              child.show(buf, offset + 4, attrnames, nodenames, child_name)
+          else:
+              # Exibe mesmo os filhos None como rótulo vazio
+              print(" " * (offset + 4) + f"{child_name}: None", file=buf)
 
+
+class NodeVisitor:
+    """A base NodeVisitor class for visiting uchuck_ast nodes.
+    Subclass it and define your own visit_XXX methods.
+    """
+
+    _method_cache = None
+
+    def visit(self, node):
+        if self._method_cache is None:
+            self._method_cache = {}
+
+        visitor = self._method_cache.get(node.__class__.__name__, None)
+        if visitor is None:
+            method = 'visit_' + node.__class__.__name__
+            visitor = getattr(self, method, self.generic_visit)
+            self._method_cache[node.__class__.__name__] = visitor
+
+        return visitor(node)
+
+    def generic_visit(self, node):
+        for _, child in node.children():
+            if isinstance(child, Node):
+                self.visit(child)
 
 class Coord:
     """Coordinates of a syntactic element. Consists of:
