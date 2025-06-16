@@ -1,0 +1,9 @@
+"" => string S;
+while( S != "A" )
+    S + 1 => S;
+"A-Z" => S;
+<<< S >>>;
+"Hello
+world!" => S;
+<<< S >>>;
+"char" => S;

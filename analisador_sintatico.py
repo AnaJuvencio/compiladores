@@ -275,8 +275,7 @@ class UChuckParser(Parser):
 
     @_('binary_expression NEQ binary_expression')
     def binary_expression(self, p):
-        coord = self._token_coord(p)
-        coord.column += 1  
+        coord = self._token_coord(p) 
         return BinaryOp('!=', p.binary_expression0, p.binary_expression1, coord)
 
     @_('binary_expression AND binary_expression')
