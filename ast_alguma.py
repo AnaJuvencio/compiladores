@@ -60,7 +60,7 @@ class Node:
     attr_names = ()
 
     def __repr__(self):
-        result = self.__class__.__name__
+        result = self.__class__.__name__ + ":"
         if hasattr(self, 'attr_names') and self.attr_names:
             parts = []
             for attr in self.attr_names:
@@ -272,7 +272,7 @@ class Type(Node):
     def children(self):
         return ()
 
-    attr_names = ("typename",)  
+    attr_names = ()  
 
 
 
