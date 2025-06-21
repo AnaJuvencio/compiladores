@@ -285,8 +285,23 @@ class UChuckParser(Parser):
     @_('binary_expression AND binary_expression')
     def binary_expression(self, p):
         coord = self._token_coord(p)
-        coord.column += 1 
+
+        # Pega a coordenada da subexpressão à esquerda
+        left_coord = getattr(p.binary_expression0, "coord", None)
+
+        # Agora a lógica está invertida: ajusta apenas se as colunas forem diferentes
+        if left_coord and coord.column != left_coord.column:
+            coord.column += 1  # Ajusta a coluna do operador &&
+
         return BinaryOp('&&', p.binary_expression0, p.binary_expression1, coord)
+
+
+
+
+
+
+
+
 
     @_('binary_expression OR binary_expression')
     def binary_expression(self, p):

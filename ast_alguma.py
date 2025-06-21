@@ -73,14 +73,21 @@ class Node:
     def show(self, buf=sys.stdout, offset=0, attrnames=False, nodenames=False, showcoord=False, _my_node_name=None):
         lead = " " * offset
         label = self.__repr__()
-        if showcoord and self.coord:
+
+        omit_coord_classes = {"ExpressionAsStatement", "VarDecl"}  
+        class_name = self.__class__.__name__
+
+        if showcoord and self.coord and class_name not in omit_coord_classes:
             label += f" @ {self.coord.line}:{self.coord.column}"
+
         print(lead + label, file=buf)
+
         for (child_name, child) in self.children():
             if child is not None:
                 child.show(buf, offset + 4, attrnames, nodenames, showcoord, child_name)
             else:
                 print(" " * (offset + 4) + f"{child_name}: None", file=buf)
+
 
 
 
@@ -227,6 +234,8 @@ class UnaryOp(Node):
     def children(self):
         return (None, self.operand),
 
+    def __repr__(self):
+        return f"UnaryOp: {self.op}"
 
 class Location(Node):
     __slots__ = ("name", "coord")
@@ -272,7 +281,11 @@ class Type(Node):
     def children(self):
         return ()
 
-    attr_names = ()  
+    attr_names = ()
+    
+    def __repr__(self):
+        return f"Type: {self.typename}"
+
 
 
 
@@ -293,7 +306,6 @@ class VarDecl(Node):
         return f"VarDecl: ID(name={self.identifier})"
 
 
-
     
 class ExpressionAsStatement(Node):
     __slots__ = ("expression", "coord")
@@ -306,7 +318,9 @@ class ExpressionAsStatement(Node):
     def children(self):
         return ((None, self.expression),) if self.expression is not None else ()
 
-    #attr_names = ("coord",)
+    def __repr__(self):
+        return "ExpressionAsStatement:"  # sem coordenadas aqui
+
 
 
 class StmtList(Node):
