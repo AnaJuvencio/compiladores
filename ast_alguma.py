@@ -74,7 +74,7 @@ class Node:
         lead = " " * offset
         label = self.__repr__()
 
-        omit_coord_classes = {"ExpressionAsStatement", "VarDecl"}  
+        omit_coord_classes = {"ExpressionAsStatement", "VarDecl"}
         class_name = self.__class__.__name__
 
         if showcoord and self.coord and class_name not in omit_coord_classes:
@@ -84,9 +84,19 @@ class Node:
 
         for (child_name, child) in self.children():
             if child is not None:
-                child.show(buf, offset + 4, attrnames, nodenames, showcoord, child_name)
+                child.show(
+                    buf=buf,
+                    offset=offset + 4,
+                    attrnames=attrnames,
+                    nodenames=nodenames,
+                    showcoord=showcoord,
+                    _my_node_name=child_name
+                )
             else:
                 print(" " * (offset + 4) + f"{child_name}: None", file=buf)
+
+
+
 
 
 
@@ -231,11 +241,13 @@ class UnaryOp(Node):
         self.op = op
         self.operand = operand
         self.coord = coord
+        
     def children(self):
-        return (None, self.operand),
-
+        return (("operand", self.operand),)
+    
     def __repr__(self):
         return f"UnaryOp: {self.op}"
+    
 
 class Location(Node):
     __slots__ = ("name", "coord")
@@ -390,3 +402,4 @@ class ExprList(Node):
     def children(self):
         return tuple((None, expr) for expr in self.exprs)
 
+    

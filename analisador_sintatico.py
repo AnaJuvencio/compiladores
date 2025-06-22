@@ -18,7 +18,7 @@ class UChuckParser(Parser):
         ('left', 'LT', 'LE', 'GT', 'GE'),
         ('left', 'PLUS', 'MINUS'),
         ('left', 'TIMES', 'DIVIDE', 'PERCENT'),
-        ('right', 'UMINUS'),
+        #('right', 'UMINUS'),
         ('right', 'EXCLAMATION'),
     )
 
@@ -151,13 +151,16 @@ class UChuckParser(Parser):
 
     # <expression> ::= <chuck_expression> { "," <chuck_expression> }*
 
-    @_('chuck_expression COMMA expression')
+    @_('expression COMMA expression')
     def expression(self, p):
-        coord = self._token_coord(p)
-        if isinstance(p.expression, ExprList):
-            return ExprList([p.chuck_expression] + p.expression.exprs, coord=coord)
+        if isinstance(p.expression0, ExprList):
+            expressions = p.expression0.exprs + [p.expression1]
+            coord = p.expression0.coord  
         else:
-            return ExprList([p.chuck_expression, p.expression], coord=coord)
+            expressions = [p.expression0, p.expression1]
+            coord = p.expression0.coord  
+
+        return ExprList(expressions, coord=coord)
 
 
 
@@ -226,7 +229,6 @@ class UChuckParser(Parser):
     @_('binary_expression PLUS binary_expression')
     def binary_expression(self, p):
         coord = self._token_coord(p)
-        # Corrige para casos como: <<< -2 + 3 >>>
         if isinstance(p.binary_expression0, UnaryOp):
             coord.column += 1
         return BinaryOp('+', p.binary_expression0, p.binary_expression1, coord=coord)
@@ -286,21 +288,14 @@ class UChuckParser(Parser):
     def binary_expression(self, p):
         coord = self._token_coord(p)
 
-        # Pega a coordenada da subexpressão à esquerda
+        
         left_coord = getattr(p.binary_expression0, "coord", None)
 
-        # Agora a lógica está invertida: ajusta apenas se as colunas forem diferentes
+        
         if left_coord and coord.column != left_coord.column:
-            coord.column += 1  # Ajusta a coluna do operador &&
+            coord.column += 1  
 
         return BinaryOp('&&', p.binary_expression0, p.binary_expression1, coord)
-
-
-
-
-
-
-
 
 
     @_('binary_expression OR binary_expression')
@@ -317,17 +312,15 @@ class UChuckParser(Parser):
 
     # <unary_expression> ::= <primary_expression>
     #                      | <unary_operator> <unary_expression>
-    @_('MINUS unary_expression %prec UMINUS')
-    def unary_expression(self, p):
-        coord = self._token_coord(p)
-        coord.column += 1  # ajusta manualmente a coluna
-        return UnaryOp('-', p.unary_expression, coord=coord)
+    @_('MINUS expression')
+    def expression(self, p):
+        coord = self._token_coord(p.MINUS)  
+        return UnaryOp('-', p.expression, coord=coord)
+
 
     @_('unary_operator unary_expression')
     def unary_expression(self, p):
-        coord = self._token_coord(p)
-        coord.column += 1  # ajusta também neste caso, se necessário
-        return UnaryOp(p.unary_operator, p.unary_expression, coord=coord)
+        return UnaryOp(p.unary_operator, p.unary_expression, coord=p.unary_expression.coord)
 
 
     @_('primary_expression')
