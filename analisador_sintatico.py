@@ -1,6 +1,7 @@
 import sys
 from sly import Parser
 from analisador_lexico import UChuckLexer
+from analisador_semantico import Visitor 
 from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, BreakStatement, ContinueStatement, ExprList, Coord
 
 class UChuckParser(Parser):
@@ -173,6 +174,7 @@ class UChuckParser(Parser):
     @_('chuck_expression CHUCK decl_expression')
     def chuck_expression(self, p):
         coord = self._token_coord(p)
+        # p.expression NÃO existe aqui!
         return ChuckOp(source=p.chuck_expression, target=p.decl_expression, coord=coord)
 
 
@@ -444,9 +446,17 @@ def print_error(msg, x, y):
     # use stdout to match with the output in the .out test files
     print("Lexical error: %s at %d:%d" % (msg, x, y), file=sys.stdout)
 
+'''def main(args):
+    parser = UChuckParser(print_error)
+    with open(args[0], 'r') if len(args) > 0 else sys.stdin as f:
+        ast = parser.parse(f.read())
+        if ast is not None:
+            ast.show(showcoord=True)'''
 def main(args):
     parser = UChuckParser(print_error)
     with open(args[0], 'r') if len(args) > 0 else sys.stdin as f:
         ast = parser.parse(f.read())
         if ast is not None:
+            sema = Visitor()
+            sema.visit(ast)  # ⬅️ aqui executa a análise semântica
             ast.show(showcoord=True)

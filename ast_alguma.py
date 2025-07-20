@@ -231,7 +231,7 @@ class BinaryOp(Node):
 
     attr_names = ("operator", "coord")
     def __repr__(self):
-        return f"BinaryOp: {self.operator}"
+        return f"BinaryOp: {self.op}"
 
 
 class UnaryOp(Node):
