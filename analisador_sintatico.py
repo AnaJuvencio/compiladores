@@ -2,7 +2,7 @@ import sys
 from sly import Parser
 from analisador_lexico import UChuckLexer
 from analisador_semantico import Visitor 
-from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, BreakStatement, ContinueStatement, ExprList, Coord
+from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, BreakStatement, ContinueStatement, ExprList, Coord, Type, ID
 
 class UChuckParser(Parser):
     """A parser for the uChuck language."""
@@ -174,8 +174,10 @@ class UChuckParser(Parser):
     @_('chuck_expression CHUCK decl_expression')
     def chuck_expression(self, p):
         coord = self._token_coord(p)
-        # p.expression NÃO existe aqui!
-        return ChuckOp(source=p.chuck_expression, target=p.decl_expression, coord=coord)
+        return ChuckOp(p.chuck_expression, p.decl_expression, coord=coord)
+
+
+
 
 
     @_('decl_expression')
@@ -188,7 +190,17 @@ class UChuckParser(Parser):
     @_('type_decl ID')
     def decl_expression(self, p):
         coord = self._token_coord(p)
-        return VarDecl(p.type_decl, p.ID, coord=coord)
+        # Se p.type_decl já for Type, só usa ele!
+        if isinstance(p.type_decl, Type):
+            dtype = p.type_decl
+        else:
+            dtype = Type(p.type_decl, coord=coord)
+        return VarDecl(dtype, ID(p.ID, coord=coord), coord=coord)
+
+
+
+
+
 
 
     @_('binary_expression')

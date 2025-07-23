@@ -157,28 +157,29 @@ class Program(Node):
         return "Program:"
 
 class ChuckOp(Node):
-    __slots__ = ("source", "target", "coord")
-
-    def __init__(self, source, target, coord=None):
+    __slots__ = ("expression", "location", "coord")
+    def __init__(self, expression, location, coord=None):
         super().__init__()
-        self.source = source
-        self.target = target
+        self.expression = expression
+        self.location = location
         self.coord = coord
 
     def children(self):
-        return (None, self.target), (None, self.source)
+        return (None, self.location), (None, self.expression)
 
 
 
 class IfStatement(Node):
-    __slots__ = ("condition", "if_body", "else_body", "coord")
-    
+    __slots__ = ("condition", "if_body", "else_body", "coord", "test", "consequence", "alternative")
     def __init__(self, condition, if_body, else_body=None, coord=None):
         super().__init__()
         self.condition = condition
         self.if_body = if_body
         self.else_body = else_body
         self.coord = coord
+        self.test = condition
+        self.consequence = if_body
+        self.alternative = else_body
 
     def children(self):
         children = [(None, self.condition), (None, self.if_body)]
@@ -193,12 +194,13 @@ class IfStatement(Node):
 
 
 class WhileStatement(Node):
-    __slots__ = ("condition", "body", "coord")
+    __slots__ = ("condition", "body", "coord", "test")
     def __init__(self, condition, body, coord=None):
         super().__init__()
         self.condition = condition
         self.body = body
         self.coord = coord
+        self.test = condition
     def children(self):
         return (None, self.condition), (None, self.body)
     def __repr__(self):
@@ -214,22 +216,23 @@ class PrintStatement(Node):
     def children(self):
         return (None, self.expr),
 
+    @property
+    def expression(self):
+        return self.expr
+
+
 
 
 class BinaryOp(Node):
-    __slots__ = ("operator", "left", "right", "coord")
-
-    def __init__(self, operator, left, right, coord=None):
+    __slots__ = ("op", "left", "right", "coord")
+    def __init__(self, op, left, right, coord=None):
         super().__init__()
-        self.operator = operator
+        self.op = op
         self.left = left
         self.right = right
         self.coord = coord
-
     def children(self):
-        return (None, self.left), (None, self.right)
-
-    attr_names = ("operator", "coord")
+        return (("left", self.left), ("right", self.right))
     def __repr__(self):
         return f"BinaryOp: {self.op}"
 
@@ -266,20 +269,15 @@ class Location(Node):
 
 
 class Literal(Node):
-    __slots__ = ("tipo", "valor", "coord")
-
-    def __init__(self, tipo, valor, coord=None):
+    __slots__ = ("type", "valor", "coord")
+    def __init__(self, type_name, valor, coord=None):
         super().__init__(coord)
-        self.tipo = tipo
+        self.type = type_name
         self.valor = valor
-
     def children(self):
         return ()
-
-    attr_names = ("tipo", "valor") 
-
     def __repr__(self):
-        return f"Literal: {self.tipo}, {self.valor}"
+        return f"Literal: {self.type}, {self.valor}"
 
 
 
@@ -302,20 +300,21 @@ class Type(Node):
 
 
 class VarDecl(Node):
-    __slots__ = ("typename", "identifier", "coord")
-    def __init__(self, typename, identifier, coord=None):
+    __slots__ = ("dtype", "name", "coord")
+    def __init__(self, dtype, name, coord=None):
         super().__init__()
-        self.typename = typename
-        self.identifier = identifier
+        self.dtype = dtype  # Nó Type
+        self.name = name    # Nó ID
         self.coord = coord
+
     def children(self):
-        # Só inclui Type como filho!
-        return (
-            (None, Type(self.typename, self.coord)),
-        )
-    attr_names = ()
+        # Retorna ambos como filhos!
+        return ((None, self.dtype), (None, self.name))
+
     def __repr__(self):
-        return f"VarDecl: ID(name={self.identifier})"
+        return f"VarDecl: ID(name={getattr(self.name, 'name', self.name)})"
+
+
 
 
     
@@ -379,15 +378,14 @@ class ContinueStatement(Node):
       
 class ID(Node):
     __slots__ = ("name", "coord")
-
+    
     def __init__(self, name, coord=None):
-        super().__init__()
-        self.name = name
-        self.coord = coord
-
+        super().__init__(coord)
+        self.name = name      # string com o nome do identificador
+        
     def children(self):
         return ()
-
+        
     def __repr__(self):
         return f"ID(name={self.name})"
       

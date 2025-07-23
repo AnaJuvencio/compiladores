@@ -51,7 +51,7 @@ class SymbolTable:
 class Visitor(NodeVisitor):
     def __init__(self):
         self.symtab = None
-        # Só esses tipos que aceito aqui (poderia colocar mais depois)
+        # Só esses tipos que aceito aqui 
         self.typemap = {
             "int": IntType,
             "float": FloatType,
@@ -90,20 +90,34 @@ class Visitor(NodeVisitor):
             self.visit(stmt)
 
     def visit_VarDecl(self, node):
-        # Pega o nome da variável, depende da AST do professor
         var_name = getattr(node, 'name', None)
         if hasattr(node, 'name') and hasattr(node.name, 'name'):
             var_name = node.name.name
-        # Não pode redeclarar
-        self._assert_semantic(self.symtab.lookup(var_name) is None, 9, node.coord, name=var_name)
-        # O tipo é sempre um nó 'Type'
+        self._assert_semantic(
+            var_name is not None,
+            1, node.coord,
+            name="VarDecl"
+        )
+        self._assert_semantic(
+            self.symtab.lookup(var_name) is None,
+            9, node.coord,
+            name=var_name
+        )
         self.visit(node.dtype)
-        var_type = node.dtype.attrs['uchuck_type']
+        var_type = node.dtype.attrs.get('uchuck_type')
+        # Bloqueia tipo inválido
+        self._assert_semantic(
+            var_type in self.typemap.values(),
+            1, node.coord,
+            name=str(var_type)
+        )
         node.attrs['uchuck_type'] = var_type
         self.symtab.add(var_name, node)
 
+
+
     def visit_Type(self, node):
-        type_name = getattr(node, 'name', None)
+        type_name = getattr(node, 'typename', None) or getattr(node, 'name', None)
         self._assert_semantic(type_name in self.typemap, 1, node.coord, name=type_name)
         node.attrs['uchuck_type'] = self.typemap[type_name]
 
@@ -114,52 +128,119 @@ class Visitor(NodeVisitor):
         node.attrs['defn'] = decl
         node.attrs['uchuck_type'] = decl.attrs['uchuck_type']
 
+
     def visit_Literal(self, node):
-        # Trata bool como int, porque é como o professor sugeriu
         type_name = getattr(node, 'type', None)
-        if type_name == 'bool':
+        if type_name == 'bool':  # trata bool como int
             type_name = 'int'
-        self._assert_semantic(type_name in self.typemap, 1, node.coord, name=type_name)
+        # Bloqueia literais de tipo desconhecido
+        self._assert_semantic(
+            type_name in self.typemap,
+            1, node.coord,
+            name=type_name
+        )
         node.attrs['uchuck_type'] = self.typemap[type_name]
 
+
     def visit_BinaryOp(self, node):
+        # Visita os filhos
         self.visit(node.left)
         self.visit(node.right)
-        ltype = node.left.attrs['uchuck_type']
-        rtype = node.right.attrs['uchuck_type']
-        op = node.op
-        # Tipos precisam ser iguais
-        self._assert_semantic(ltype == rtype, 3, node.coord, name=op)
-        if op in ltype.binary_ops:
+        
+        # Recupera tipos
+        ltype = node.left.attrs.get('uchuck_type')
+        rtype = node.right.attrs.get('uchuck_type')
+
+        # Garante que ambos os tipos estão definidos
+        self._assert_semantic(
+            ltype is not None and rtype is not None,
+            3, node.coord,
+            name=getattr(node, 'op', '?'),
+            ltype=str(ltype),
+            rtype=str(rtype)
+        )
+
+        # Pega o operador (adapta ao nome da AST)
+        op = getattr(node, 'op', getattr(node, 'operator', None))
+        self._assert_semantic(
+            op is not None,
+            4, node.coord,
+            name="(undefined op)",
+            ltype=str(ltype)
+        )
+
+        # Tipos precisam ser idênticos (não aceita int + float, por exemplo)
+        self._assert_semantic(
+            ltype == rtype,
+            3, node.coord,
+            name=op,
+            ltype=str(ltype),
+            rtype=str(rtype)
+        )
+
+        # Aceita só tipos conhecidos (evita pegar tipos "None")
+        self._assert_semantic(
+            ltype in self.typemap.values(),
+            3, node.coord,
+            name=op,
+            ltype=str(ltype)
+        )
+
+        # Operador precisa ser suportado por esse tipo!
+        if op in getattr(ltype, 'binary_ops', set()):
             node.attrs['uchuck_type'] = ltype
-        elif op in ltype.rel_ops:
-            node.attrs['uchuck_type'] = IntType
+        elif op in getattr(ltype, 'rel_ops', set()):
+            node.attrs['uchuck_type'] = self.typemap['int']
         else:
-            self._assert_semantic(False, 4, node.coord, name=op, ltype=ltype.typename)
+            self._assert_semantic(
+                False, 4, node.coord, name=op, ltype=str(ltype)
+            )
+
+
 
     def visit_UnaryOp(self, node):
         self.visit(node.operand)
-        operand_type = node.operand.attrs['uchuck_type']
-        op = node.op
-        self._assert_semantic(op in operand_type.unary_ops, 10, node.coord, name=op, ltype=str(operand_type))
+        operand_type = node.operand.attrs.get('uchuck_type')
+        op = getattr(node, 'op', None)
+        self._assert_semantic(
+            operand_type is not None and hasattr(operand_type, 'unary_ops'),
+            10, node.coord, name=op, ltype=str(operand_type)
+        )
+        self._assert_semantic(
+            op in operand_type.unary_ops,
+            10, node.coord, name=op, ltype=str(operand_type)
+        )
         node.attrs['uchuck_type'] = operand_type
+
 
     def visit_ChuckOp(self, node):
         self.visit(node.expression)
-        expr_type = node.expression.attrs['uchuck_type']
+        expr_type = node.expression.attrs.get('uchuck_type')
         self.visit(node.location)
-        loc_type = node.location.attrs['uchuck_type']
-        # Só pode atribuir para VarDecl ou Location
+        loc_type = node.location.attrs.get('uchuck_type')
+
+        # Só permite atribuição para VarDecl ou Location
         is_assignable = type(node.location).__name__ in ('Location', 'VarDecl')
         self._assert_semantic(is_assignable, 8, node.coord)
-        self._assert_semantic(loc_type == expr_type, 2, node.coord, ltype=str(loc_type), rtype=str(expr_type))
+
+        # Tipos precisam bater e não podem ser None!
+        self._assert_semantic(
+            expr_type is not None and loc_type is not None and loc_type == expr_type,
+            2, node.coord, ltype=str(loc_type), rtype=str(expr_type)
+        )
         node.attrs['uchuck_type'] = loc_type
+
 
     def visit_PrintStatement(self, node):
         self.visit(node.expression)
-        expr_type = node.expression.attrs['uchuck_type']
-        self._assert_semantic(expr_type in [IntType, FloatType, StringType], 7, node.coord)
+        expr_type = node.expression.attrs.get('uchuck_type')
+        self._assert_semantic(
+            expr_type in [self.typemap['int'], self.typemap['float'], self.typemap['string']],
+            7, node.coord
+        )
         node.attrs['uchuck_type'] = expr_type
+
+
 
     def visit_ExpressionAsStatement(self, node):
         if node.expression:
@@ -184,8 +265,12 @@ class Visitor(NodeVisitor):
 
     def visit_BreakStatement(self, node):
         loops = self.symtab.lookup('loops')
-        self._assert_semantic(len(loops) > 0, 5, node.coord)
+        self._assert_semantic(
+            isinstance(loops, list) and len(loops) > 0,
+            5, node.coord
+        )
         node.attrs['loop'] = loops[-1]
+
 
     def visit_ContinueStatement(self, node):
         loops = self.symtab.lookup('loops')
