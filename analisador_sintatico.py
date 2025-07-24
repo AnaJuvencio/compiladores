@@ -3,6 +3,7 @@ from sly import Parser
 from analisador_lexico import UChuckLexer
 from analisador_semantico import Visitor 
 from ast_alguma import Program, BinaryOp, UnaryOp, Literal, Location, PrintStatement, IfStatement, WhileStatement, ChuckOp, VarDecl, ExpressionAsStatement, StmtList, BreakStatement, ContinueStatement, ExprList, Coord, Type, ID
+from gerador_codigo import CodeGenerator
 
 class UChuckParser(Parser):
     """A parser for the uChuck language."""
@@ -464,11 +465,29 @@ def print_error(msg, x, y):
         ast = parser.parse(f.read())
         if ast is not None:
             ast.show(showcoord=True)'''
-def main(args):
+'''def main(args):
     parser = UChuckParser(print_error)
     with open(args[0], 'r') if len(args) > 0 else sys.stdin as f:
         ast = parser.parse(f.read())
         if ast is not None:
             sema = Visitor()
             sema.visit(ast)  # ⬅️ aqui executa a análise semântica
-            ast.show(showcoord=True)
+            ast.show(showcoord=True)'''
+
+def main(args):
+    parser = UChuckParser(print_error)
+    with open(args[0], 'r') if len(args) > 0 else sys.stdin as f:
+        ast = parser.parse(f.read())
+        if ast is not None:
+            sema = Visitor()
+            sema.visit(ast)     # análise semântica
+            gen = CodeGenerator()
+            gen.generate(ast)   # <- chama generate, não visit!
+            with open('out.c', 'w') as outf:
+                gen.show(outf)
+            print("Wrote: out.c")
+
+
+
+
+
