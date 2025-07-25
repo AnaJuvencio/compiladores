@@ -20,6 +20,8 @@ class Function:
         decl += "}"
         return decl
 
+
+
 class CodeGenerator(NodeVisitor):
     def __init__(self):
         self.globals = []
@@ -90,16 +92,33 @@ class CodeGenerator(NodeVisitor):
     def visit_Literal(self, node):
         value = getattr(node, 'valor', None) if hasattr(node, 'valor') else getattr(node, 'value', None)
         uchuck_type = node.attrs['uchuck_type']
+
         if uchuck_type == IntType or uchuck_type == FloatType:
             temp = str(value)
         elif uchuck_type == StringType:
             temp = self.new_temporary('char*')
-            # Escapa barras e aspas apenas!
-            c_value = value.encode('unicode_escape').decode('ascii').replace('"', '\\"')
+
+            # Remove aspas externas se houver (ex: '"x"' vira 'x')
+            if isinstance(value, str) and value.startswith('"') and value.endswith('"'):
+                value_inner = value[1:-1]
+            else:
+                value_inner = value
+
+            # CASO ESPECIAL: apenas uma quebra de linha
+            if value_inner == '\\n' or value_inner == '\n':
+                c_value = '\\n' if value_inner == '\\n' else '\n'
+            else:
+                # Faz escape duplo: unicode_escape cobre multiline e \n, replace cobre aspas duplas
+                c_value = (
+                    value_inner.encode('unicode_escape').decode('ascii')
+                    .replace('"', '\\"')
+                )
             self.append(f'{temp} = strdup("{c_value}");')
         else:
             raise RuntimeError("Unsupported literal type")
         node.attrs['gen_location'] = temp
+
+
 
     def visit_BinaryOp(self, node):
         self.visit(node.left)
@@ -218,23 +237,21 @@ class CodeGenerator(NodeVisitor):
 
     def visit_PrintStatement(self, node):
         exprs = node.expression.exprs if hasattr(node.expression, 'exprs') else [node.expression]
-        format_specifiers = []
-        values = []
         for expr in exprs:
+            # Checa se é string "\n" para imprimir direto um ENTER
+            if hasattr(expr, 'attrs') and expr.attrs.get('uchuck_type', None) == StringType:
+                val = getattr(expr, 'valor', None) if hasattr(expr, 'valor') else getattr(expr, 'value', None)
+                if val == '"\\n"' or val == '"\n"' or val == '\n' or val == '\\n':
+                    self.append('printf("\\n");')
+                    continue
             self.visit(expr)
-            value = expr.attrs['gen_location']
-            values.append(value)
+            val = expr.attrs['gen_location']
             ctype = self.typeof(expr)
             if ctype == "int":
-                format_specifiers.append("%d")
+                self.append(f'printf("%d\\n", {val});')
             elif ctype == "double":
-                format_specifiers.append("%f")
+                self.append(f'printf("%f\\n", {val});')
             elif ctype == "char*":
-                format_specifiers.append("%s")
-        format_string = "".join(format_specifiers) + "\\n"
-        value_string = ", ".join(values)
-        if value_string:
-            self.append(f'printf("{format_string}", {value_string});')
-        else:
-            self.append(f'printf("{format_string}");')
+                self.append(f'printf("%s\\n", {val});')
+
 
